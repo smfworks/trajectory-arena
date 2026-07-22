@@ -1,7 +1,7 @@
 # Trajectory Arena
 
 <div align="center">
-  <img src="/logo.png" alt="Trajectory Arena" width="200" />
+  <img src="public/logo.png" alt="Trajectory Arena" width="200" />
 </div>
 
 > Visualize, replay, and evaluate agentic coding trajectories.
@@ -17,10 +17,10 @@ about how coding agents think.
 ## Screenshots
 
 ### Home — Trajectory List
-![Home 1](/home1.png)
+![Home 1](public/home1.png)
 
 ### Trajectory Replay
-![Home 2](/home2.png)
+![Home 2](public/home2.png)
 
 ## Features
 
