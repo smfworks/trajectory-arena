@@ -304,8 +304,8 @@ export interface TimingInfo {
  * The complete trajectory metadata.
  */
 export interface TrajectoryMetadata {
-  /** Task definition (or reference to one). */
-  task: TaskDefinition | { id: TaskId };
+  /** Task definition. */
+  task: TaskDefinition;
   /** Model information. */
   model: ModelInfo;
   /** Environment information. */

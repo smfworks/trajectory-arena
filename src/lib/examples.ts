@@ -246,7 +246,7 @@ export default function App() {
       data: {
         fileEdit: {
           filePath: "src/App.tsx",
-          operation: "create",
+          operation: "create" as const,
           oldContent: "",
           newContent: `import React, { useState } from "react";
 import TodoInput from "./TodoInput.tsx";
@@ -389,7 +389,7 @@ export default function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
       data: {
         fileEdit: {
           filePath: "src/TodoItem.tsx",
-          operation: "create",
+          operation: "create" as const,
           oldContent: "",
           newContent: `import React from "react";
 
@@ -497,7 +497,7 @@ export default function TodoInput({ onAdd }: TodoInputProps) {
       data: {
         fileEdit: {
           filePath: "src/TodoInput.tsx",
-          operation: "create",
+          operation: "create" as const,
           oldContent: "",
           newContent: `import React, { useState } from "react";
 
@@ -582,7 +582,7 @@ export default function TodoInput({ onAdd }: TodoInputProps) {
       data: {
         fileEdit: {
           filePath: "src/index.css",
-          operation: "create",
+          operation: "create" as const,
           oldContent: "",
           newContent: `@tailwind base;
 @tailwind components;
@@ -684,7 +684,7 @@ found 0 vulnerabilities`,
       data: {
         testResult: {
           testName: "npm run build",
-          status: "pass",
+          status: "pass" as const,
           output: "Build completed successfully. No errors.",
           durationMs: 4000,
         },
@@ -707,7 +707,7 @@ found 0 vulnerabilities`,
       data: {
         message: {
           text: "The todo list app is complete. I've created:\n\n1. **App.tsx** - Main component with state management for todos\n2. **TodoItem.tsx** - Individual todo item with toggle and delete\n3. **TodoInput.tsx** - Input form for adding new todos\n4. **index.css** - Tailwind CSS styling with dark theme\n\nThe app allows users to:\n- Add new todos via the input field\n- Mark todos as complete/incomplete by clicking the checkbox\n- Delete todos by clicking the ✕ button\n- See active/completed counts\n\nThe design uses a modern dark theme with gradient background, rounded corners, and smooth hover transitions. The build completed successfully with no errors.",
-          sender: "agent",
+          sender: "agent" as const,
         },
       },
     },
@@ -751,7 +751,7 @@ found 0 vulnerabilities`,
       testResults: [
         {
           name: "npm run build",
-          status: "pass",
+          status: "pass" as const,
           output: "Build completed successfully. No errors.",
           durationMs: 4000,
         },
@@ -779,7 +779,7 @@ export function createTodoListFailureTrajectory(): Trajectory {
       data: {
         message: {
           text: "Build a todo list app with React. Make sure it has add, delete, and toggle functionality.",
-          sender: "user",
+          sender: "user" as const,
         },
       },
     },
@@ -840,7 +840,7 @@ export default function App() {
       data: {
         fileEdit: {
           filePath: "src/App.tsx",
-          operation: "create",
+          operation: "create" as const,
           oldContent: "",
           newContent: `import React, { useState } from "react";
 
@@ -992,7 +992,7 @@ found 0 vulnerabilities`,
       data: {
         testResult: {
           testName: "npm run build",
-          status: "pass",
+          status: "pass" as const,
           output: "Build completed successfully.",
           durationMs: 4000,
         },
@@ -1015,7 +1015,7 @@ found 0 vulnerabilities`,
       data: {
         message: {
           text: "The build passes, but the app is missing delete and toggle functionality. The success criteria require all three features. I was unable to complete all requirements within the time limit. The app only has add functionality.",
-          sender: "agent",
+          sender: "agent" as const,
         },
       },
     },
@@ -1059,7 +1059,7 @@ found 0 vulnerabilities`,
       testResults: [
         {
           name: "npm run build",
-          status: "pass",
+          status: "pass" as const,
           output: "Build completed successfully.",
           durationMs: 4000,
         },

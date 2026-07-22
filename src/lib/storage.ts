@@ -33,6 +33,17 @@ import type {
   LeaderboardEntry,
   TrajectoryStats,
 } from "./schema";
+export type {
+  Trajectory,
+  TrajectoryId,
+  TaskDefinition,
+  TaskId,
+  TaskRun,
+  RunId,
+  LeaderboardEntry,
+  TrajectoryStats,
+} from "./schema";
+export { TRAJECTORY_SCHEMA_VERSION } from "./schema";
 import { TRAJECTORY_SCHEMA_VERSION } from "./schema";
 
 /** Base data directory. */
