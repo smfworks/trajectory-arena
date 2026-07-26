@@ -1,158 +1,118 @@
-import { Book, Code, Database, Layout, Play, BarChart3 } from "lucide-react";
+import { BookOpen, Database, FileJson, LockKeyhole, Network } from "lucide-react";
+import { AppHeader } from "@/components/app-header";
+
+const endpoints = [
+  ["GET", "/api/health", "Liveness and storage integrity summary"],
+  ["GET", "/api/trajectories", "List trajectory summaries with bounded pagination"],
+  ["POST", "/api/trajectories", "Create or replace a validated trajectory"],
+  ["GET", "/api/trajectories/:id", "Read one trajectory"],
+  ["GET", "/api/trajectories/:id/export", "Download a TrajectoryExport document"],
+  ["POST", "/api/import", "Import a raw trajectory or export wrapper"],
+  ["GET", "/api/tasks", "List evaluation tasks"],
+  ["POST", "/api/tasks", "Create or update a task"],
+  ["GET", "/api/leaderboard?taskId=:id", "Rank imported runs for a task"],
+];
 
 export default function DocsPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
-      {/* Header */}
-      <header className="border-b border-slate-800">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Book className="w-8 h-8 text-blue-400" />
-            <h1 className="text-xl font-bold text-white">Trajectory Arena</h1>
-          </div>
-          <nav className="flex items-center gap-6">
-            <a
-              href="/"
-              className="text-slate-300 hover:text-white transition-colors"
-            >
-              Home
-            </a>
-            <a
-              href="/trajectories"
-              className="text-slate-300 hover:text-white transition-colors"
-            >
-              Trajectories
-            </a>
-            <a
-              href="/arena"
-              className="text-slate-300 hover:text-white transition-colors"
-            >
-              Arena
-            </a>
-          </nav>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+      <AppHeader icon={<BookOpen aria-hidden="true" className="h-5 w-5" />} />
+      <main className="container mx-auto max-w-4xl space-y-10 px-4 py-10 sm:px-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Documentation</h1>
+          <p className="mt-2 text-slate-400">Runtime contract for Trajectory Arena v1.0.0.</p>
         </div>
-      </header>
 
-      <main className="container mx-auto px-6 py-12 max-w-4xl">
-        <h2 className="text-3xl font-bold text-white mb-8">Documentation</h2>
-
-        <div className="prose prose-invert max-w-none">
-          <div className="space-y-8">
-            {/* Overview */}
-            <section>
-              <h3 className="text-xl font-semibold text-white">Overview</h3>
-              <p className="text-slate-300 leading-relaxed">
-                Trajectory Arena is an open-source tool for recording,
-                replaying, and evaluating agentic coding trajectories. It
-                allows you to visualize how AI coding agents think, call tools,
-                edit files, and ship code — step by step.
-              </p>
-            </section>
-
-            {/* Trajectory Schema */}
-            <section>
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Code className="w-5 h-5 text-blue-400" />
-                Trajectory Schema (v1.0.0)
-              </h3>
-              <p className="text-slate-300">
-                Trajectories are stored as JSON files with a versioned schema.
-                The schema is designed to be clean and extensible.
-              </p>
-              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mt-4">
-                <pre className="text-sm text-slate-300 overflow-x-auto">
-{`{
+        <DocSection icon={FileJson} title="Trajectory schema">
+          <p>
+            The canonical schema version is <code>1.0.0</code>. Imports reject unknown versions,
+            unexpected object keys, mismatched step payloads, non-contiguous step indexes, invalid
+            timestamps, non-finite numbers, and oversized fields. Structural statistics are
+            recomputed while token and duration metrics are preserved.
+          </p>
+          <pre className="mt-4 overflow-x-auto rounded-lg border border-slate-700 bg-slate-950 p-4 text-sm text-slate-300">{`{
   "schemaVersion": "1.0.0",
-  "id": "uuid",
-  "runId": "uuid",
-  "metadata": {
-    "task": { "id": "...", "title": "...", "description": "..." },
-    "model": { "name": "...", "provider": "...", "config": {} },
-    "environment": { "os": "...", "workingDir": "..." },
-    "timing": { "startedAt": "...", "endedAt": "...", "durationMs": 0 },
-    "stats": { "totalSteps": 0, "tokens": { "input": 0, "output": 0 } }
-  },
-  "steps": [
-    {
-      "stepIndex": 0,
-      "timestamp": "ISO8601",
-      "type": "reasoning|tool_call|tool_result|file_edit|terminal|test_result|checkpoint|message",
-      "data": { ... }
-    }
-  ],
-  "outcome": { "status": "success|failure|partial", "summary": "..." }
-}`}
-                </pre>
-              </div>
-            </section>
+  "id": "safe-entity-id",
+  "metadata": { "task": {}, "model": {}, "environment": {}, "timing": {}, "stats": {} },
+  "steps": [{ "stepIndex": 0, "timestamp": "ISO-8601", "type": "reasoning", "data": {} }],
+  "outcome": { "status": "success", "summary": "...", "testResults": [] }
+}`}</pre>
+        </DocSection>
 
-            {/* Storage */}
-            <section>
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Database className="w-5 h-5 text-green-400" />
-                Storage
-              </h3>
-              <p className="text-slate-300">
-                All data is stored locally. The application uses SQLite for
-                metadata indexing and JSON files for full trajectory data.
-              </p>
-              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mt-4">
-                <pre className="text-sm text-slate-300">
-{`data/
-  db.sqlite              # SQLite database (index)
-  trajectories/          # Full trajectory JSON files
-  tasks/                 # Task definition JSON files
-  runs/                  # Run metadata JSON files`}
-                </pre>
-              </div>
-            </section>
+        <DocSection icon={Database} title="Storage model">
+          <p>
+            Validated JSON entity files under <code>data/trajectories</code>,{" "}
+            <code>data/tasks</code>, and
+            <code>data/runs</code> are the source of truth. Writes use a same-directory temporary
+            file, filesystem sync, and atomic rename. Lists are derived from entity files, so
+            mutable indexes cannot diverge after a crash. A persistent writable volume is required
+            for containers.
+          </p>
+        </DocSection>
 
-            {/* API */}
-            <section>
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Layout className="w-5 h-5 text-purple-400" />
-                API
-              </h3>
-              <p className="text-slate-300">
-                REST API for trajectory management.
-              </p>
-              <div className="space-y-2 mt-4">
-                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                  <code className="text-blue-400">GET</code>{" "}
-                  <code className="text-slate-300">/api/trajectories</code>
-                  <span className="text-slate-500"> — List trajectories</span>
-                </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                  <code className="text-blue-400">GET</code>{" "}
-                  <code className="text-slate-300">/api/trajectories/:id</code>
-                  <span className="text-slate-500"> — Get trajectory</span>
-                </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                  <code className="text-green-400">POST</code>{" "}
-                  <code className="text-slate-300">/api/import</code>
-                  <span className="text-slate-500"> — Import trajectory</span>
-                </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                  <code className="text-blue-400">GET</code>{" "}
-                  <code className="text-slate-300">/api/leaderboard?taskId=xxx</code>
-                  <span className="text-slate-500"> — Get leaderboard</span>
-                </div>
-              </div>
-            </section>
-
-            {/* Architecture */}
-            <section>
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-yellow-400" />
-                Architecture
-              </h3>
-              <p className="text-slate-300">
-                See <a href="/ARCHITECTURE.md" className="text-blue-400">ARCHITECTURE.md</a> for the full architecture document.
-              </p>
-            </section>
+        <DocSection icon={Network} title="HTTP API">
+          <div className="mt-4 overflow-x-auto rounded-lg border border-slate-700">
+            <table className="w-full min-w-[38rem] text-left text-sm">
+              <thead className="border-b border-slate-700 bg-slate-900 text-slate-400">
+                <tr>
+                  <th scope="col" className="px-4 py-3">
+                    Method
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Path
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Purpose
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {endpoints.map(([method, path, purpose]) => (
+                  <tr
+                    key={`${method}-${path}`}
+                    className="border-b border-slate-700/60 last:border-0"
+                  >
+                    <td className="px-4 py-3 font-mono text-blue-300">{method}</td>
+                    <td className="px-4 py-3 font-mono text-slate-200">{path}</td>
+                    <td className="px-4 py-3 text-slate-400">{purpose}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </DocSection>
+
+        <DocSection icon={LockKeyhole} title="Deployment security">
+          <p>
+            Production starts fail closed at the request boundary unless Basic authentication is
+            configured or unauthenticated access is explicitly allowed. Set{" "}
+            <code>TRAJECTORY_READ_ONLY=true</code> for immutable deployments. Example seeding is
+            disabled in production unless
+            <code>TRAJECTORY_ENABLE_SEED=true</code>. Put TLS termination in front of the service
+            and keep the Docker port bound to loopback unless remote access is intentional.
+          </p>
+        </DocSection>
       </main>
     </div>
+  );
+}
+
+function DocSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof FileJson;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-slate-700 bg-slate-800/50 p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+        <Icon aria-hidden="true" className="h-5 w-5 text-blue-400" />
+        {title}
+      </h2>
+      <div className="docs-copy mt-3 min-w-0 leading-7 text-slate-300">{children}</div>
+    </section>
   );
 }

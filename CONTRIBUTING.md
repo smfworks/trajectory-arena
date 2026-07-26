@@ -1,98 +1,79 @@
 # Contributing to Trajectory Arena
 
-Thank you for your interest in contributing to Trajectory Arena! This document
-outlines the development setup and guidelines.
-
-## Development Setup
+## Development setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/smfworks/trajectory-arena.git
 cd trajectory-arena
-
-# Install dependencies
-npm install
-
-# Start the development server
+npm ci
 npm run dev
-
-# Open http://localhost:3000
 ```
 
-## Project Structure
+Use Node.js `>=22.12.0` and npm `11.9.0`.
 
+## Engineering rules
+
+- Validate external input at the boundary; TypeScript assertions are not runtime validation.
+- Never construct storage paths from unchecked values.
+- Preserve task → trajectory → run referential integrity.
+- Keep rejected requests side-effect free.
+- Use atomic writes and the storage transaction helpers for every persistent mutation.
+- Do not execute imported commands or code.
+- Keep UI controls keyboard accessible, labelled, responsive, and explicit about loading/error/empty states.
+- Update README, architecture, operations, and changelog when contracts change.
+
+## Test-first workflow
+
+For correctness, storage, security, API, and replay changes:
+
+1. Add the narrow regression test.
+2. Run it and confirm it fails for the expected reason.
+3. Implement the smallest root-cause fix.
+4. Rerun the focused test.
+5. Run the complete release matrix.
+
+## Local quality gates
+
+```bash
+npm run format
+npm run lint
+npm run typecheck
+npm run test:coverage
+npm run build
+npm run audit
+npx playwright install chromium
+npm run test:e2e
 ```
-src/
-├── app/
-│   ├── api/              # REST API routes (server-side)
-│   ├── trajectories/     # Trajectory list + replay pages
-│   ├── arena/            # Task definition + leaderboard
-│   ├── import/           # Trajectory import page
-│   ├── docs/             # Documentation page
-│   ├── seed/             # Example data seeder
-│   ├── layout.tsx        # Root layout
-│   └── page.tsx          # Home page
-├── lib/
-│   ├── schema.ts         # Trajectory schema (v1.0.0)
-│   ├── storage.ts        # JSON file storage
-│   └── examples.ts       # Example trajectory generator
-└── public/               # Static assets
-```
 
-## Key Concepts
+The coverage gate enforces 80% lines/statements, 90% functions, and 68% branches across core libraries and API handlers.
 
-### Trajectory Schema
-The trajectory schema is defined in `src/lib/schema.ts`. It is versioned
-and designed to be extensible. When adding new fields:
-- Add them to the appropriate interface
-- Update the version if the change is breaking
-- Document the change in the schema file
+## Storage testing
 
-### Storage Layer
-The storage layer (`src/lib/storage.ts`) uses JSON files for local-first
-operation. The storage directory is `data/` (gitignored). Key functions:
-- `saveTrajectory(trajectory)` — Save a trajectory
-- `loadTrajectory(id)` — Load a trajectory by ID
-- `listTrajectories()` — List all trajectories
-- `deleteTrajectory(id)` — Delete a trajectory
+Storage tests must use a temporary `TRAJECTORY_DATA_DIR`; never use repository or operator data. Changes to persistence should cover applicable cases:
 
-### API Routes
-API routes are in `src/app/api/`. They are server-side functions that
-interact with the storage layer. All routes return JSON.
+- malformed/corrupt JSON;
+- traversal and symbolic links;
+- write lock contention;
+- partial/failing graph writes and rollback;
+- task/trajectory/run references;
+- delete lifecycle;
+- import/export metric preservation;
+- deterministic seeding;
+- production configuration.
 
-## Coding Guidelines
+## API testing
 
-- Use TypeScript for all code
-- Use `"use client"` for components that use client-side hooks
-- Use `lucide-react` for icons
-- Use Tailwind CSS for styling
-- Keep components modular and reusable
-- Document complex functions with JSDoc comments
+Cover success and relevant `400`, `401`, `403`, `404`, `409`, `413`, `500`, and `503` behavior. Assert errors do not leak internal paths or exception text and that successful API responses are `no-store`.
 
-## Adding a New Feature
+## Browser testing
 
-1. **Schema changes** — Update `src/lib/schema.ts` if needed
-2. **Storage** — Update `src/lib/storage.ts` if needed
-3. **API** — Add or update routes in `src/app/api/`
-4. **UI** — Add pages in `src/app/`
-5. **Documentation** — Update README.md and ARCHITECTURE.md
+Playwright runs against `.next/standalone/server.js`, not the development server. Add representative workflow tests for UI behavior, keyboard access, failure states, mobile overflow, and navigation.
 
-## Testing
+## Pull requests
 
-Currently, there is no formal test suite. To verify changes:
-1. Run `npm run dev` and check the browser
-2. Use `curl` to test API endpoints
-3. Verify the seed endpoint works: `curl -X POST http://localhost:3000/api/seed`
+- Keep commits reviewable and document architecture decisions.
+- Include the reason, behavior change, security/storage impact, and verification commands.
+- Do not merge with a red CI check, unresolved high/critical finding, or stale exact-commit review.
+- New dependency exceptions must be documented; high/critical npm advisories block release.
 
-## Pull Requests
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-By contributing, you agree that your contributions will be licensed under
-the MIT License.
+See [SECURITY.md](SECURITY.md) for private vulnerability reports.

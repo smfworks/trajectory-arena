@@ -5,8 +5,7 @@
  * These are used to make the app demo-ready on first launch.
  */
 
-import { v4 as uuidv4 } from "uuid";
-import type { Trajectory, TaskDefinition, TaskRun } from "@/lib/schema";
+import type { TaskDefinition, Trajectory } from "@/lib/schema";
 import { TRAJECTORY_SCHEMA_VERSION } from "@/lib/schema";
 import { computeStats } from "@/lib/storage";
 
@@ -51,7 +50,7 @@ export function createTodoListTask(): TaskDefinition {
             },
           },
           null,
-          2
+          2,
         ),
         language: "json",
       },
@@ -718,8 +717,8 @@ found 0 vulnerabilities`,
 
   const trajectory: Trajectory = {
     schemaVersion: TRAJECTORY_SCHEMA_VERSION,
-    id: uuidv4(),
-    runId: uuidv4(),
+    id: "example-todo-success-v1",
+    runId: "example-todo-success-run-v1",
     metadata: {
       task: createTodoListTask(),
       model: {
@@ -1026,8 +1025,8 @@ found 0 vulnerabilities`,
 
   const trajectory: Trajectory = {
     schemaVersion: TRAJECTORY_SCHEMA_VERSION,
-    id: uuidv4(),
-    runId: uuidv4(),
+    id: "example-todo-partial-v1",
+    runId: "example-todo-partial-run-v1",
     metadata: {
       task: createTodoListTask(),
       model: {
@@ -1074,52 +1073,6 @@ found 0 vulnerabilities`,
  * Seed the database with example data.
  */
 export async function seedExampleData(): Promise<void> {
-  const { saveTask, saveTrajectory, saveRun, listTrajectories } = await import("@/lib/storage");
-
-  // Check if we already have data
-  const existing = await listTrajectories();
-  if (existing.length > 0) {
-    console.log(`[seed] ${existing.length} trajectories already exist, skipping seed.`);
-    return;
-  }
-
-  // Save task
-  const task = createTodoListTask();
-  await saveTask(task);
-
-  // Save trajectories
-  const traj1 = createTodoListTrajectory();
-  await saveTrajectory(traj1);
-
-  const traj2 = createTodoListFailureTrajectory();
-  await saveTrajectory(traj2);
-
-  // Save runs
-  const run1: TaskRun = {
-    id: traj1.runId!,
-    taskId: task.id,
-    trajectoryId: traj1.id,
-    model: traj1.metadata.model,
-    status: traj1.outcome.status,
-    startedAt: traj1.metadata.timing.startedAt,
-    endedAt: traj1.metadata.timing.endedAt,
-    durationMs: traj1.metadata.timing.durationMs,
-    testResults: traj1.outcome.testResults,
-  };
-  await saveRun(run1);
-
-  const run2: TaskRun = {
-    id: traj2.runId!,
-    taskId: task.id,
-    trajectoryId: traj2.id,
-    model: traj2.metadata.model,
-    status: traj2.outcome.status,
-    startedAt: traj2.metadata.timing.startedAt,
-    endedAt: traj2.metadata.timing.endedAt,
-    durationMs: traj2.metadata.timing.durationMs,
-    testResults: traj2.outcome.testResults,
-  };
-  await saveRun(run2);
-
-  console.log("[seed] Created 1 task, 2 trajectories, 2 runs.");
+  const { saveTrajectories } = await import("@/lib/storage");
+  saveTrajectories([createTodoListTrajectory(), createTodoListFailureTrajectory()]);
 }

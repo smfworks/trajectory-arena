@@ -1,323 +1,336 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Save, Plus, Trash2, Tag, FileText } from "lucide-react";
-import type { TaskDefinition, FileSpec } from "@/lib/schema";
-import { v4 as uuidv4 } from "uuid";
+import { FilePlus2, Plus, Save, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
+import { AppHeader } from "@/components/app-header";
+import { ErrorBanner } from "@/components/error-banner";
+import { apiFetch, messageFromError } from "@/lib/client-api";
+
+interface TextRow {
+  id: string;
+  value: string;
+}
+
+interface FileRow {
+  id: string;
+  path: string;
+  language: string;
+  content: string;
+}
+
+function newId(): string {
+  return crypto.randomUUID();
+}
 
 export default function NewTaskPage() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [successCriteria, setSuccessCriteria] = useState<string[]>([""]);
-  const [testCommands, setTestCommands] = useState<string[]>([""]);
-  const [tags, setTags] = useState("");
-  const [starterFiles, setStarterFiles] = useState<FileSpec[]>([
-    { path: "", content: "", language: "typescript" },
+  const [criteria, setCriteria] = useState<TextRow[]>([{ id: "criterion-initial", value: "" }]);
+  const [commands, setCommands] = useState<TextRow[]>([{ id: "command-initial", value: "" }]);
+  const [files, setFiles] = useState<FileRow[]>([
+    { id: "file-initial", path: "", language: "typescript", content: "" },
   ]);
+  const [tags, setTags] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const addSuccessCriterion = () => {
-    setSuccessCriteria([...successCriteria, ""]);
-  };
-
-  const updateSuccessCriterion = (index: number, value: string) => {
-    const newCriteria = [...successCriteria];
-    newCriteria[index] = value;
-    setSuccessCriteria(newCriteria);
-  };
-
-  const removeSuccessCriterion = (index: number) => {
-    setSuccessCriteria(successCriteria.filter((_, i) => i !== index));
-  };
-
-  const addTestCommand = () => {
-    setTestCommands([...testCommands, ""]);
-  };
-
-  const updateTestCommand = (index: number, value: string) => {
-    const newCommands = [...testCommands];
-    newCommands[index] = value;
-    setTestCommands(newCommands);
-  };
-
-  const removeTestCommand = (index: number) => {
-    setTestCommands(testCommands.filter((_, i) => i !== index));
-  };
-
-  const updateStarterFile = (index: number, field: keyof FileSpec, value: string) => {
-    const newFiles = [...starterFiles];
-    newFiles[index] = { ...newFiles[index], [field]: value };
-    setStarterFiles(newFiles);
-  };
-
-  const addStarterFile = () => {
-    setStarterFiles([...starterFiles, { path: "", content: "", language: "typescript" }]);
-  };
-
-  const removeStarterFile = (index: number) => {
-    setStarterFiles(starterFiles.filter((_, i) => i !== index));
-  };
-
-  async function handleSave() {
-    if (!title.trim()) return;
-
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setSaving(true);
+    setError(null);
     try {
-      const task: TaskDefinition = {
-        id: uuidv4(),
-        title,
-        description,
-        successCriteria: successCriteria.filter((c) => c.trim()),
-        testCommands: testCommands.filter((c) => c.trim()),
-        starterFiles: starterFiles.filter((f) => f.path.trim()),
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter((t) => t),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const res = await fetch("/api/tasks", {
+      await apiFetch<{ id: string }>("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(task),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          successCriteria: criteria.map((item) => item.value.trim()).filter(Boolean),
+          testCommands: commands.map((item) => item.value.trim()).filter(Boolean),
+          starterFiles: files
+            .filter((file) => file.path.trim())
+            .map(({ path, language, content }) => ({
+              path: path.trim(),
+              language: language.trim() || undefined,
+              content,
+            })),
+          tags: tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        }),
       });
-
-      if (res.ok) {
-        window.location.href = "/arena";
-      }
-    } catch (error) {
-      console.error("Failed to save task:", error);
+      router.push("/arena");
+      router.refresh();
+    } catch (saveError) {
+      setError(messageFromError(saveError));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
-      {/* Header */}
-      <header className="border-b border-slate-800">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-              <Plus className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-white">Trajectory Arena</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+      <AppHeader icon={<FilePlus2 aria-hidden="true" className="h-5 w-5" />} />
+      <main className="container mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white">New evaluation task</h1>
+          <p className="mt-2 text-slate-400">
+            Define the task contract used to group and compare imported trajectories.
+          </p>
+        </div>
+
+        {error ? (
+          <div className="mb-6">
+            <ErrorBanner message={error} />
           </div>
-          <nav className="flex items-center gap-6">
-            <Link
-              href="/"
-              className="text-slate-300 hover:text-white transition-colors"
-            >
-              Home
-            </Link>
-            <Link
-              href="/arena"
-              className="text-slate-300 hover:text-white transition-colors"
-            >
-              Arena
-            </Link>
-          </nav>
-        </div>
-      </header>
+        ) : null}
 
-      <main className="container mx-auto px-6 py-12 max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-bold text-white">New Task</h2>
-          <button
-            onClick={handleSave}
-            disabled={saving || !title.trim()}
-            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {saving ? (
-              <>
-                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Task
-              </>
-            )}
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {/* Basic Info */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Basic Info</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Title
-                </label>
+        <form onSubmit={(event) => void submit(event)} className="space-y-6">
+          <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-white">Task details</h2>
+            <div className="mt-4 space-y-4">
+              <label htmlFor="task-title" className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">Title</span>
                 <input
-                  type="text"
+                  id="task-title"
+                  required
+                  maxLength={200}
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Build a Todo List App"
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(event) => setTitle(event.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
+                  placeholder="Build a reliable queue worker"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Description
-                </label>
+              </label>
+              <label htmlFor="task-description" className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">Description</span>
                 <textarea
+                  id="task-description"
+                  maxLength={100_000}
+                  rows={5}
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Detailed description of the task..."
-                  rows={4}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  onChange={(event) => setDescription(event.target.value)}
+                  className="w-full resize-y rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-white focus:border-blue-400 focus:outline-none"
+                  placeholder="Describe requirements, constraints, and expected behavior."
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Tags
-                </label>
+              </label>
+              <label htmlFor="task-tags" className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">Tags</span>
                 <input
-                  type="text"
+                  id="task-tags"
+                  maxLength={2_000}
                   value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="react, typescript, frontend (comma-separated)"
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(event) => setTags(event.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
+                  placeholder="typescript, backend, reliability"
                 />
+                <span className="mt-1 block text-xs text-slate-500">Comma-separated</span>
+              </label>
+            </div>
+          </section>
+
+          <TextRowsSection
+            title="Success criteria"
+            description="Observable conditions that determine whether a run succeeded."
+            rows={criteria}
+            placeholder="All retry tests pass"
+            inputPrefix="criterion"
+            addLabel="Add criterion"
+            onAdd={() => setCriteria((items) => [...items, { id: newId(), value: "" }])}
+            onChange={(id, value) =>
+              setCriteria((items) =>
+                items.map((item) => (item.id === id ? { ...item, value } : item)),
+              )
+            }
+            onRemove={(id) => setCriteria((items) => items.filter((item) => item.id !== id))}
+          />
+
+          <TextRowsSection
+            title="Test commands"
+            description="Commands recorded with the task contract; Trajectory Arena does not execute them."
+            rows={commands}
+            placeholder="npm test"
+            inputPrefix="command"
+            addLabel="Add command"
+            onAdd={() => setCommands((items) => [...items, { id: newId(), value: "" }])}
+            onChange={(id, value) =>
+              setCommands((items) =>
+                items.map((item) => (item.id === id ? { ...item, value } : item)),
+              )
+            }
+            onRemove={(id) => setCommands((items) => items.filter((item) => item.id !== id))}
+          />
+
+          <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Starter files</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Optional source files embedded in the task definition.
+                </p>
               </div>
-            </div>
-          </div>
-
-          {/* Success Criteria */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                Success Criteria
-              </h3>
               <button
-                onClick={addSuccessCriterion}
-                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+                type="button"
+                onClick={() =>
+                  setFiles((items) => [
+                    ...items,
+                    { id: newId(), path: "", language: "typescript", content: "" },
+                  ])
+                }
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
               >
-                Add
+                <Plus aria-hidden="true" className="h-4 w-4" />
+                Add file
               </button>
             </div>
-            <div className="space-y-3">
-              {successCriteria.map((criterion, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={criterion}
-                    onChange={(e) => updateSuccessCriterion(index, e.target.value)}
-                    placeholder={`Criterion ${index + 1}`}
-                    className="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {successCriteria.length > 1 && (
+            <div className="mt-4 space-y-5">
+              {files.map((file) => (
+                <fieldset key={file.id} className="rounded-lg border border-slate-700 p-4">
+                  <legend className="px-2 text-sm text-slate-400">Starter file</legend>
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]">
+                    <label htmlFor={`file-path-${file.id}`}>
+                      <span className="sr-only">File path</span>
+                      <input
+                        id={`file-path-${file.id}`}
+                        value={file.path}
+                        onChange={(event) =>
+                          updateFile(setFiles, file.id, "path", event.target.value)
+                        }
+                        placeholder="src/index.ts"
+                        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-sm text-white focus:border-blue-400 focus:outline-none"
+                      />
+                    </label>
+                    <label htmlFor={`file-language-${file.id}`}>
+                      <span className="sr-only">Language</span>
+                      <input
+                        id={`file-language-${file.id}`}
+                        value={file.language}
+                        onChange={(event) =>
+                          updateFile(setFiles, file.id, "language", event.target.value)
+                        }
+                        placeholder="typescript"
+                        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none"
+                      />
+                    </label>
                     <button
-                      onClick={() => removeSuccessCriterion(index)}
-                      className="p-1 text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Test Commands */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                Test Commands
-              </h3>
-              <button
-                onClick={addTestCommand}
-                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
-              >
-                Add
-              </button>
-            </div>
-            <div className="space-y-3">
-              {testCommands.map((command, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={command}
-                    onChange={(e) => updateTestCommand(index, e.target.value)}
-                    placeholder={`e.g., npm test, npm run build`}
-                    className="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                  {testCommands.length > 1 && (
-                    <button
-                      onClick={() => removeTestCommand(index)}
-                      className="p-1 text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Starter Files */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Starter Files</h3>
-              <button
-                onClick={addStarterFile}
-                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
-              >
-                Add
-              </button>
-            </div>
-            <div className="space-y-4">
-              {starterFiles.map((file, index) => (
-                <div key={index} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={file.path}
-                      onChange={(e) =>
-                        updateStarterFile(index, "path", e.target.value)
+                      type="button"
+                      aria-label="Remove starter file"
+                      disabled={files.length === 1}
+                      onClick={() =>
+                        setFiles((items) => items.filter((item) => item.id !== file.id))
                       }
-                      placeholder="File path (e.g., src/App.tsx)"
-                      className="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      value={file.language}
-                      onChange={(e) =>
-                        updateStarterFile(index, "language", e.target.value)
-                      }
-                      placeholder="Language"
-                      className="w-32 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {starterFiles.length > 1 && (
-                      <button
-                        onClick={() => removeStarterFile(index)}
-                        className="p-1 text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                      className="rounded-lg p-2 text-red-400 hover:bg-red-500/10 disabled:opacity-30"
+                    >
+                      <Trash2 aria-hidden="true" className="h-5 w-5" />
+                    </button>
                   </div>
-                  <textarea
-                    value={file.content}
-                    onChange={(e) =>
-                      updateStarterFile(index, "content", e.target.value)
-                    }
-                    placeholder="File contents..."
-                    rows={6}
-                    className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
-                  />
-                </div>
+                  <label htmlFor={`file-content-${file.id}`} className="mt-3 block">
+                    <span className="sr-only">File contents</span>
+                    <textarea
+                      id={`file-content-${file.id}`}
+                      rows={7}
+                      value={file.content}
+                      onChange={(event) =>
+                        updateFile(setFiles, file.id, "content", event.target.value)
+                      }
+                      placeholder="File contents"
+                      className="w-full resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-blue-400 focus:outline-none"
+                    />
+                  </label>
+                </fieldset>
               ))}
             </div>
+          </section>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving || !title.trim()}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-6 py-3 font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Save aria-hidden="true" className="h-5 w-5" />
+              {saving ? "Saving…" : "Save task"}
+            </button>
           </div>
-        </div>
+        </form>
       </main>
     </div>
   );
+}
+
+function TextRowsSection({
+  title,
+  description,
+  rows,
+  placeholder,
+  inputPrefix,
+  addLabel,
+  onAdd,
+  onChange,
+  onRemove,
+}: {
+  title: string;
+  description: string;
+  rows: TextRow[];
+  placeholder: string;
+  inputPrefix: string;
+  addLabel: string;
+  onAdd: () => void;
+  onChange: (id: string, value: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <p className="mt-1 text-sm text-slate-400">{description}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
+        >
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          {addLabel}
+        </button>
+      </div>
+      <div className="mt-4 space-y-3">
+        {rows.map((row) => (
+          <div key={row.id} className="flex items-center gap-2">
+            <label htmlFor={`${inputPrefix}-${row.id}`} className="min-w-0 flex-1">
+              <span className="sr-only">{title} item</span>
+              <input
+                id={`${inputPrefix}-${row.id}`}
+                value={row.value}
+                onChange={(event) => onChange(row.id, event.target.value)}
+                placeholder={placeholder}
+                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
+              />
+            </label>
+            <button
+              type="button"
+              aria-label={`Remove ${title.toLowerCase()} item`}
+              disabled={rows.length === 1}
+              onClick={() => onRemove(row.id)}
+              className="rounded-lg p-2 text-red-400 hover:bg-red-500/10 disabled:opacity-30"
+            >
+              <Trash2 aria-hidden="true" className="h-5 w-5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function updateFile(
+  setFiles: React.Dispatch<React.SetStateAction<FileRow[]>>,
+  id: string,
+  field: "path" | "language" | "content",
+  value: string,
+) {
+  setFiles((items) => items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
 }

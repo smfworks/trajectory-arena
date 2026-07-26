@@ -10,11 +10,8 @@ build/
 dist/
 
 # Environment files
-.env
-.env.local
-.env.development
-.env.production
-.env.test
+.env*
+!.env.example
 
 # IDE
 .idea/
@@ -38,8 +35,13 @@ Thumbs.db
 # Data (local-first storage)
 data/
 
-# Coverage
+# Coverage and browser artifacts
 coverage/
+playwright-report/
+test-results/
+
+# TypeScript incremental state
+tsconfig.tsbuildinfo
 
 # Lock files (keep npm)
 # package-lock.json

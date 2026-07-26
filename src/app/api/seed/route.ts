@@ -1,18 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { errorResponse, jsonResponse, requireSeedEnabled } from "@/lib/api";
 import { seedExampleData } from "@/lib/examples";
 
-/**
- * POST /api/seed
- * Seed the database with example data.
- */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
+    requireSeedEnabled(request);
     await seedExampleData();
-    return NextResponse.json({ success: true, message: "Seeded successfully" });
+    return jsonResponse({ success: true, message: "Example data is ready" });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Seed failed" },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }

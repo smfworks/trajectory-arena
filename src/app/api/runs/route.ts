@@ -1,15 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { errorResponse, jsonResponse } from "@/lib/api";
 import { listRuns } from "@/lib/storage";
-import type { TaskId } from "@/lib/schema";
+import { parseEntityId } from "@/lib/validation";
 
-/**
- * GET /api/runs?taskId=xxx
- * List runs, optionally filtered by task.
- */
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const taskId = searchParams.get("taskId") as TaskId | null;
-
-  const runs = await listRuns(taskId || undefined);
-  return NextResponse.json(runs);
+export function GET(request: NextRequest) {
+  try {
+    const rawTaskId = new URL(request.url).searchParams.get("taskId");
+    return jsonResponse(listRuns(rawTaskId === null ? undefined : parseEntityId(rawTaskId)));
+  } catch (error) {
+    return errorResponse(error);
+  }
 }

@@ -1,30 +1,33 @@
-name: Bug Report
-about: Report a bug in Trajectory Arena
-title: ''
+---
+name: Bug report
+about: Report a reproducible defect in Trajectory Arena
+title: "[Bug]: "
 labels: bug
-assignees: ''
-
+assignees: ""
 ---
 
-## Describe the bug
-A clear and concise description of what the bug is.
+## Summary
 
-## To Reproduce
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '...'
-3. See error
+Describe the observed behavior and impact.
+
+## Reproduction
+
+1. Deployment mode and version/commit:
+2. Configuration relevant to the behavior (do not include secrets):
+3. Exact steps or request payload:
+4. Observed status, error, or screenshot:
 
 ## Expected behavior
-A clear and concise description of what you expected to happen.
 
-## Screenshots
-If applicable, add screenshots to help explain your problem.
+Describe the expected result.
 
-## Environment (please complete the following information):
-- OS: [e.g. Windows, macOS, Linux]
-- Node.js version: [e.g. 20.x]
-- Trajectory Arena version: [e.g. 1.0.0]
+## Environment
 
-## Additional context
-Add any other context about the problem here.
+- OS/container runtime:
+- Node.js version:
+- Browser and viewport, when relevant:
+- Storage type/path characteristics:
+
+## Integrity and security impact
+
+State whether this may involve data loss, corruption, credential/source disclosure, authentication, path handling, or availability. Report suspected vulnerabilities privately using `SECURITY.md`, not this public template.
