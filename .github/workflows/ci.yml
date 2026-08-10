@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  Verify production candidate:
     runs-on: ubuntu-latest
 
     steps:
