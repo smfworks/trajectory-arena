@@ -367,6 +367,8 @@ export interface LeaderboardEntry {
   runId: RunId;
   /** Task ID. */
   taskId: TaskId;
+  /** Trajectory ID for replay. */
+  trajectoryId: TrajectoryId;
   /** Model name. */
   modelName: string;
   /** Status. */

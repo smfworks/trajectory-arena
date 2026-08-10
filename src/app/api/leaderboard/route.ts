@@ -1,22 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { errorResponse, jsonResponse } from "@/lib/api";
 import { getLeaderboard } from "@/lib/storage";
-import type { TaskId } from "@/lib/schema";
+import { InputValidationError, parseEntityId } from "@/lib/validation";
 
-/**
- * GET /api/leaderboard?taskId=xxx
- * Get leaderboard entries for a task.
- */
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const taskId = searchParams.get("taskId") as TaskId | null;
-
-  if (!taskId) {
-    return NextResponse.json(
-      { error: "Missing taskId parameter" },
-      { status: 400 }
-    );
+export function GET(request: NextRequest) {
+  try {
+    const taskId = new URL(request.url).searchParams.get("taskId");
+    if (taskId === null) {
+      throw new InputValidationError("Invalid leaderboard request", ["taskId is required"]);
+    }
+    return jsonResponse(getLeaderboard(parseEntityId(taskId)));
+  } catch (error) {
+    return errorResponse(error);
   }
-
-  const entries = await getLeaderboard(taskId);
-  return NextResponse.json(entries);
 }

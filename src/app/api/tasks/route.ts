@@ -1,67 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
-import {
-  saveTask,
-  loadTask,
-  listTasks,
-  deleteTask,
-} from "@/lib/storage";
-import type { TaskDefinition } from "@/lib/schema";
+import { randomUUID } from "node:crypto";
+import type { NextRequest } from "next/server";
+import { errorResponse, isRecord, jsonResponse, readJsonBody, requireWritable } from "@/lib/api";
+import { deleteTask, listTasks, loadTask, saveTask } from "@/lib/storage";
+import { InputValidationError, parseEntityId, parseTaskDefinition } from "@/lib/validation";
 
-/**
- * GET /api/tasks
- * List all tasks.
- */
-export async function GET() {
-  const tasks = await listTasks();
-  return NextResponse.json(tasks);
+export function GET() {
+  try {
+    return jsonResponse(listTasks());
+  } catch (error) {
+    return errorResponse(error);
+  }
 }
 
-/**
- * POST /api/tasks
- * Create or update a task.
- */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const task = body as TaskDefinition;
-
-    if (!task.id || !task.title) {
-      return NextResponse.json(
-        { error: "Invalid task: missing required fields" },
-        { status: 400 }
-      );
+    requireWritable(request);
+    const body = await readJsonBody(request);
+    if (!isRecord(body)) {
+      throw new InputValidationError("Invalid task", ["value must be an object"]);
     }
 
-    // Ensure timestamps
-    if (!task.createdAt) task.createdAt = new Date().toISOString();
-    task.updatedAt = new Date().toISOString();
-
-    await saveTask(task);
-    return NextResponse.json({ id: task.id, success: true });
+    const id = body.id === undefined ? randomUUID() : parseEntityId(body.id);
+    const existing = loadTask(id);
+    const now = new Date().toISOString();
+    const task = parseTaskDefinition({
+      ...body,
+      id,
+      createdAt: existing?.createdAt ?? body.createdAt ?? now,
+      updatedAt: now,
+    });
+    saveTask(task);
+    return jsonResponse({ id: task.id, success: true }, existing ? 200 : 201);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }
 
-/**
- * DELETE /api/tasks?id=xxx
- * Delete a task.
- */
-export async function DELETE(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
-
-  if (!id) {
-    return NextResponse.json({ error: "Missing id parameter" }, { status: 400 });
+export function DELETE(request: NextRequest) {
+  try {
+    requireWritable(request);
+    const id = parseEntityId(new URL(request.url).searchParams.get("id"));
+    if (!deleteTask(id)) {
+      return jsonResponse({ error: "Task not found", code: "NOT_FOUND" }, 404);
+    }
+    return jsonResponse({ success: true });
+  } catch (error) {
+    return errorResponse(error);
   }
-
-  const deleted = await deleteTask(id);
-  if (!deleted) {
-    return NextResponse.json({ error: "Task not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true });
 }

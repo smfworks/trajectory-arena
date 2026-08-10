@@ -1,20 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { errorResponse, jsonResponse } from "@/lib/api";
 import { loadTask } from "@/lib/storage";
+import { parseEntityId } from "@/lib/validation";
 
-/**
- * GET /api/tasks/[id]
- * Get a single task by ID.
- */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const task = loadTask(id);
-
-  if (!task) {
-    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const task = loadTask(parseEntityId((await params).id));
+    if (!task) return jsonResponse({ error: "Task not found", code: "NOT_FOUND" }, 404);
+    return jsonResponse(task);
+  } catch (error) {
+    return errorResponse(error);
   }
-
-  return NextResponse.json(task);
 }

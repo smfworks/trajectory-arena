@@ -1,0 +1,12 @@
+version: 2
+
+secret:
+  ignored_paths:
+    - "tests/**/*"
+    - "scripts/auth-smoke.mjs"
+    - ".github/workflows/ci.yml"
+  ignored_matches:
+    - match: "ci-only-auth-boundary"
+      name: "CI test auth password"
+    - match: "correct horse battery staple"
+      name: "Test Basic Auth password (XKCD reference, not real)"

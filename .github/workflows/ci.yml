@@ -6,30 +6,127 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     name: Verify production candidate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: "true"
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          persist-credentials: false
 
-      - name: Install dependencies
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+
+      - name: Install deterministic dependencies
         run: npm ci
 
-      - name: Build
+      - name: Static analysis
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit, API, storage, and coverage gates
+        run: npm run test:coverage
+
+      - name: Dependency vulnerability gates
+        run: npm run audit
+
+      - name: Build standalone production artifact
         run: npm run build
 
-      - name: Start server and test
+      - name: Smoke standalone production artifact
+        env:
+          HOSTNAME: 127.0.0.1
+          PORT: "3110"
+          SMOKE_BASE_URL: http://127.0.0.1:3110
+          TRAJECTORY_DATA_DIR: /tmp/trajectory-arena-smoke
+          TRAJECTORY_ALLOW_UNAUTHENTICATED: "true"
+          TRAJECTORY_ENABLE_SEED: "true"
+          TRAJECTORY_PUBLIC_ORIGIN: http://127.0.0.1:3110
         run: |
-          npm run dev &
-          sleep 10
-          curl -sf http://localhost:3000/ > /dev/null || exit 1
-          curl -sf http://localhost:3000/api/trajectories > /dev/null || exit 1
-          curl -sf http://localhost:3000/api/tasks > /dev/null || exit 1
+          set -euo pipefail
+          rm -rf "$TRAJECTORY_DATA_DIR"
+          npm run prepare:standalone
+          node .next/standalone/server.js >/tmp/trajectory-arena-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
+          npm run smoke
+
+      - name: Smoke production authentication boundary
+        env:
+          HOSTNAME: 127.0.0.1
+          PORT: "3111"
+          SMOKE_BASE_URL: http://127.0.0.1:3111
+          SMOKE_BASIC_AUTH_USER: operator
+          SMOKE_BASIC_AUTH_PASSWORD: ci-only-auth-boundary
+          TRAJECTORY_DATA_DIR: /tmp/trajectory-arena-auth-smoke
+          TRAJECTORY_BASIC_AUTH_USER: operator
+          TRAJECTORY_BASIC_AUTH_PASSWORD: ci-only-auth-boundary
+          TRAJECTORY_PUBLIC_ORIGIN: http://127.0.0.1:3111
+        run: |
+          set -euo pipefail
+          rm -rf "$TRAJECTORY_DATA_DIR"
+          npm run prepare:standalone
+          node .next/standalone/server.js >/tmp/trajectory-arena-auth-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
+          npm run smoke:auth
+
+      - name: Install Chromium system dependencies
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Browser workflows
+        env:
+          PLAYWRIGHT_DATA_DIR: /tmp/trajectory-arena-playwright
+        run: npm run test:e2e
+
+      - name: Build hardened container
+        run: docker build --tag trajectory-arena:ci .
+
+      - name: Verify hardened container runtime
+        run: |
+          set -euo pipefail
+          docker volume create trajectory-arena-ci-data >/dev/null
+          trap 'docker rm --force trajectory-arena-ci 2>/dev/null || true; docker volume rm trajectory-arena-ci-data 2>/dev/null || true' EXIT
+          docker run --detach --rm \
+            --name trajectory-arena-ci \
+            --read-only \
+            --init \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --volume trajectory-arena-ci-data:/data \
+            --publish 127.0.0.1:3112:3000 \
+            --env TRAJECTORY_ALLOW_UNAUTHENTICATED=true \
+            --env TRAJECTORY_ENABLE_SEED=true \
+            --env TRAJECTORY_PUBLIC_ORIGIN=http://127.0.0.1:3112 \
+            trajectory-arena:ci
+          for attempt in $(seq 1 60); do
+            state=$(docker inspect trajectory-arena-ci --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}')
+            if [ "$state" = healthy ]; then break; fi
+            if [ "$state" = unhealthy ]; then docker logs trajectory-arena-ci; exit 1; fi
+            sleep 1
+          done
+          test "$state" = healthy
+          test "$(docker inspect trajectory-arena-ci --format '{{.Config.User}}')" = nextjs
+          test "$(docker inspect trajectory-arena-ci --format '{{.HostConfig.ReadonlyRootfs}}')" = true
+          test "$(docker inspect trajectory-arena-ci --format '{{json .HostConfig.CapDrop}}')" = '["ALL"]'
+          docker exec trajectory-arena-ci sh -c 'test ! -w /app && touch /data/runtime-write-check && rm /data/runtime-write-check'
+          SMOKE_BASE_URL=http://127.0.0.1:3112 npm run smoke

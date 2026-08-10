@@ -1,131 +1,123 @@
-# Trajectory Arena — Architecture
+# Trajectory Arena Architecture
 
-## Overview
+## System boundary
 
-Trajectory Arena is a local-first web application for recording, replaying, and
-evaluating agentic coding trajectories. It visualizes how AI coding agents
-think, call tools, edit files, and ship code — step by step.
+Trajectory Arena is a single-operator inspection and evaluation application. Producers create trajectory JSON outside the application; Trajectory Arena validates, persists, replays, and compares it. The application never executes imported commands or source code.
 
-## Architecture
-
-```
-trajectory-arena/
-├── app/                    # Next.js App Router
-│   ├── api/                # REST API routes
-│   │   ├── trajectories/   # Trajectory CRUD
-│   │   ├── trajectories/[id]/  # Single trajectory
-│   │   ├── import/         # Import endpoint
-│   │   ├── tasks/          # Task CRUD
-│   │   ├── tasks/[id]/     # Single task
-│   │   ├── runs/           # Run listing
-│   │   └── leaderboard/    # Leaderboard
-│   ├── trajectories/       # Trajectory list page
-│   ├── trajectories/[id]/  # Trajectory replay page
-│   ├── arena/              # Arena (tasks + leaderboard)
-│   ├── arena/new/          # Task creation
-│   ├── import/             # Import page
-│   ├── docs/               # Documentation
-│   ├── seed/               # Seed example data
-│   ├── layout.tsx          # Root layout
-│   ├── page.tsx            # Home page
-│   └── globals.css         # Global styles
-├── lib/                    # Core libraries
-│   ├── schema.ts           # Trajectory schema (TypeScript types)
-│   ├── storage.ts          # Storage layer (SQLite + JSON)
-│   └── examples.ts         # Example data generator
-├── data/                   # Local data directory (auto-created)
-│   ├── db.sqlite           # SQLite database
-│   ├── trajectories/       # Trajectory JSON files
-│   ├── tasks/              # Task JSON files
-│   └── runs/               # Run JSON files
-├── public/                 # Static assets
-├── ARCHITECTURE.md         # This file
-├── README.md               # Project readme
-└── package.json
+```mermaid
+flowchart LR
+  Producer[Agent / recorder] -->|Trajectory JSON| API[Next.js route handlers]
+  Browser[Operator browser] --> Proxy[Production access proxy]
+  Proxy --> UI[Next.js App Router UI]
+  Proxy --> API
+  API --> Validation[Zod trust boundary]
+  Validation --> Storage[Atomic JSON graph storage]
+  Storage --> Volume[(Private persistent volume)]
+  Storage --> Replay[Pure replay state]
+  Replay --> UI
 ```
 
-## Key Design Decisions
+## Components
 
-### 1. Local-First Storage
+- `src/proxy.ts` — production authentication, request IDs, fail-closed configuration, and public health exception.
+- `src/app/api/**` — bounded HTTP parsing, same-origin mutation policy, typed status/error mapping, and route contracts.
+- `src/lib/validation.ts` — strict schemas, discriminated step union, field/collection limits, timestamps, finite numbers, IDs, pagination, and schema-version checks.
+- `src/lib/storage.ts` — entity graph normalization, local persistence, writer exclusion, rollback, corruption handling, listing, import/export, and leaderboard ordering.
+- `src/lib/replay.ts` — replay panel selection, checkpoint-aware file reconstruction, and bounded progress calculations.
+- `src/app/**` — server/client page boundaries and accessible user workflows.
 
-- **SQLite** for metadata indexing (fast queries, filtering, sorting)
-- **JSON files** for full trajectory data (human-readable, portable)
-- All data stored in `./data/` directory
-- No external services or databases required
+## Trust boundaries
 
-### 2. Trajectory Schema
+### HTTP boundary
 
-The trajectory schema (`src/lib/schema.ts`) is versioned (semver) and
-designed to be:
+Request bodies are accepted only as `application/json`, capped at 10 MiB before persistence, and parsed once. Mutation routes reject cross-site browser requests and enforce read-only mode. Production access requires Basic credentials unless the operator explicitly enables unauthenticated mode.
 
-- **Clean**: Well-structured, easy to understand
-- **Extensible**: Easy to add new step types and metadata
-- **Portable**: Any tool can generate compatible logs
+### Identifier and filesystem boundary
 
-Schema version: `1.0.0`
+Entity IDs are limited to 128 ASCII letters, numbers, underscores, and hyphens. Separators, dot segments, absolute paths, control characters, and reserved filenames cannot reach path construction. Entity reads use `O_NOFOLLOW`; collection and directory symbolic links are rejected.
 
-### 3. Frontend Architecture
+### Schema boundary
 
-- **Next.js App Router** for server-side rendering and API routes
-- **React** for interactive components
-- **Tailwind CSS** for styling (dark theme, high contrast)
-- **Lucide React** for icons
+TypeScript interfaces are not treated as validation. Every incoming and persisted object passes a strict Zod schema. Step indexes must be contiguous and each step's data must match its discriminant. Token totals, timestamps, statuses, schema versions, numeric bounds, and aggregate sizes are validated.
 
-### 4. Replay Engine
+## Persistence model
 
-The replay engine (`src/app/trajectories/[id]/page.tsx`) provides:
+The data directory contains three source-of-truth collections:
 
-- Timeline scrubber with play/pause, speed control
-- Step-by-step navigation
-- Live code editor view with diff visualization
-- Side panels for reasoning, tool calls, terminal, files, tests
-- Smooth animations for timeline movement
-
-### 5. Arena Mode
-
-The arena mode (`src/app/arena/`) provides:
-
-- Task definition interface (title, description, success criteria, starter files)
-- Leaderboard for comparing multiple runs
-- Task creation and management
-
-## Data Flow
-
-```
-1. Trajectory Capture
-   Agent → Trajectory Schema → Storage (SQLite + JSON)
-
-2. Trajectory Replay
-   Storage → API → Frontend → Replay Engine → UI
-
-3. Arena
-   Task Definition → Agent Run → Trajectory → Leaderboard
+```text
+<data>/
+├── tasks/<task-id>.json
+├── trajectories/<trajectory-id>.json
+└── runs/<run-id>.json
 ```
 
-## API Routes
+There is no mutable index file. Lists are derived from validated entity files, eliminating index/entity crash divergence.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/trajectories` | List trajectories |
-| POST | `/api/trajectories` | Create/update trajectory |
-| GET | `/api/trajectories/:id` | Get trajectory |
-| DELETE | `/api/trajectories/:id` | Delete trajectory |
-| POST | `/api/import` | Import trajectory |
-| GET | `/api/tasks` | List tasks |
-| POST | `/api/tasks` | Create/update task |
-| GET | `/api/tasks/:id` | Get task |
-| GET | `/api/runs` | List runs |
-| GET | `/api/leaderboard` | Get leaderboard |
+Each write:
 
-## Environment Variables
+1. validates and normalizes the complete graph;
+2. acquires a data-directory writer lock with PID, process-start-time, and random ownership token;
+3. snapshots affected entity bytes into a durable transaction journal;
+4. writes a same-directory unique temporary file;
+5. syncs the file;
+6. atomically renames it;
+7. syncs the directory;
+8. removes the journal after every graph write succeeds;
+9. restores snapshots after an in-process failure or at the next startup after an interrupted process;
+10. releases only the lock whose ownership token matches the current writer.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `TRAJECTORY_DATA_DIR` | Data directory path | `./data` |
+A live lock causes a conflict response instead of lost updates. Linux process start time distinguishes a live owner from PID reuse; legacy/incomplete metadata is handled conservatively. Stale-lock reclamation is serialized, and lock release verifies ownership before unlinking. This model provides durable single-host, single-writer behavior; it does **not** make JSON a distributed database.
 
-## Future Enhancements
+Deleting a trajectory deletes its linked run in the same rollback-protected operation. Deleting a task is blocked while any trajectory or run references it.
 
-- Phase 3: Agent launch hooks for automatic trajectory recording
-- Phase 4: Video export, GIF generation, advanced metrics
-- Monaco Editor integration for better code viewing
-- WebSocket support for real-time trajectory streaming
+## Import and seeding
+
+A trajectory import persists its embedded task, normalized trajectory, and derived run together. Valid token counts and duration are preserved while derivable structural counts are recomputed.
+
+Bundled examples use deterministic IDs and are stored as one batch transaction. Seeding is explicit and disabled by default in production.
+
+## Replay
+
+File state begins with task starter files. The reducer applies edits until the selected step and starts from the nearest prior complete checkpoint to bound work. Checkpoints replace state rather than merge it. Empty file contents are retained, and delete operations remove files.
+
+The browser windows long timelines around the selected step and truncates very large text panels for rendering safety; full validated data remains available in JSON export.
+
+## Arena scoring
+
+The authoritative status is the trajectory outcome:
+
+- success: 100;
+- partial: 50;
+- all other statuses: 0.
+
+Ordering is deterministic: score descending, duration ascending, tokens ascending, steps ascending, then model name. The UI documents this policy and exposes the raw factors. It does not claim a statistically normalized benchmark score.
+
+## Deployment model
+
+Production requires:
+
+- one Node.js process;
+- one absolute private persistent data directory;
+- TLS termination;
+- configured Basic credentials or an explicit isolated-mode override;
+- reverse-proxy rate/body limits;
+- backup and restore procedures.
+
+The application intentionally fails closed when production storage or access control is missing. Multiple replicas and shared/network filesystems are unsupported in version 1.0.
+
+## Observability
+
+`GET /api/health` validates storage readability/writability and entity integrity while reporting application/schema versions and counts. Corruption and unexpected server failures are logged to stderr and return generic client errors. Reverse-proxy access logs provide request status, latency, and rate visibility.
+
+## Quality architecture
+
+- Biome formatting/static analysis.
+- TypeScript no-emit checking.
+- Vitest unit, validation, API, route, authentication, replay, and fault-injected storage tests.
+- Coverage thresholds: 80% lines/statements, 90% functions, 68% branches.
+- Standalone production smoke test.
+- Playwright Chromium workflow tests.
+- Production/full npm vulnerability gates.
+- Hardened container build in CI.
+
+See [OPERATIONS.md](OPERATIONS.md) for deployment and recovery and [SECURITY.md](SECURITY.md) for the threat model.
