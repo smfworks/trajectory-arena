@@ -59,4 +59,41 @@ describe("Next.js production proxy", () => {
     expect(await challenged.json()).toMatchObject({ code: "AUTH_REQUIRED" });
     expect(accepted.status).toBe(200);
   });
+
+  it("applies security headers to allowed responses", () => {
+    vi.stubEnv("NODE_ENV", "test");
+    const response = proxy(new NextRequest("http://localhost/trajectories"));
+
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+    expect(response.headers.get("permissions-policy")).toContain("geolocation=()");
+    // HSTS should NOT be set in test/dev mode
+    expect(response.headers.get("strict-transport-security")).toBeNull();
+  });
+
+  it("applies security headers to error responses", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TRAJECTORY_ALLOW_UNAUTHENTICATED", "false");
+    vi.stubEnv("TRAJECTORY_BASIC_AUTH_USER", "");
+    vi.stubEnv("TRAJECTORY_BASIC_AUTH_PASSWORD", "");
+
+    const response = proxy(new NextRequest("http://localhost/api/tasks"));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    // HSTS SHOULD be set in production
+    expect(response.headers.get("strict-transport-security")).toContain("max-age=");
+  });
+
+  it("applies security headers to health endpoint", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const response = proxy(new NextRequest("http://localhost/api/health"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("strict-transport-security")).toContain("max-age=");
+  });
 });
