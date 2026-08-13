@@ -57,7 +57,7 @@ describe("route integration", () => {
   it("seeds and exposes a coherent graph through every read route", async () => {
     expect((await seed(request("http://localhost/api/seed", "POST"))).status).toBe(200);
 
-    const taskList = await (await tasks()).json();
+    const taskList = await (await tasks(request("http://localhost/api/tasks"))).json();
     const trajectoryList = await trajectories(request("http://localhost/api/trajectories"));
     const runList = await runs(request("http://localhost/api/runs?taskId=task-todo-list"));
     const ranking = await leaderboard(
@@ -177,7 +177,7 @@ describe("route integration", () => {
       }),
     );
     expect(create.status).toBe(201);
-    expect(await (await tasks()).json()).toHaveLength(1);
+    expect(await (await tasks(request("http://localhost/api/tasks"))).json()).toHaveLength(1);
   });
 
   it("disables mutation in read-only mode", async () => {

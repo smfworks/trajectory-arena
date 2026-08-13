@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { errorResponse, isRecord, jsonResponse, readJsonBody, requireWritable } from "@/lib/api";
 import { deleteTask, listTasks, loadTask, saveTask } from "@/lib/storage";
-import { InputValidationError, parseEntityId, parseTaskDefinition } from "@/lib/validation";
+import { InputValidationError, parseEntityId, parsePagination, parseTaskDefinition } from "@/lib/validation";
 
-export function GET() {
+export function GET(request: NextRequest) {
   try {
-    return jsonResponse(listTasks());
+    const pagination = parsePagination(new URL(request.url).searchParams);
+    const offset = pagination.offset ?? 0;
+    return jsonResponse(listTasks().slice(offset, offset + pagination.limit));
   } catch (error) {
     return errorResponse(error);
   }
