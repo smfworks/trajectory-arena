@@ -1,6 +1,6 @@
 {
   "name": "trajectory-arena",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,7 +16,8 @@
     "audit": "npm audit --omit=dev",
     "smoke": "node scripts/smoke.mjs",
     "smoke:auth": "node scripts/auth-smoke.mjs",
-    "prepare:standalone": "node scripts/prepare-standalone.mjs"
+    "prepare:standalone": "node scripts/prepare-standalone.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run audit"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

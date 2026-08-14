@@ -4,6 +4,11 @@ All notable changes to Trajectory Arena are documented here. The project follows
 
 ## [Unreleased]
 
+### Fixed
+- `npm run check` now exists (lint + typecheck + test + build + audit)
+- Package version aligned to runtime `1.0.0`
+- `GET /api/tasks`, `/api/runs`, and `/api/leaderboard` honor `limit`/`offset` bounds
+
 ### Added
 
 - Strict Zod validation for all persisted entities and API inputs.
