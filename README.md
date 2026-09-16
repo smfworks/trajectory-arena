@@ -2,7 +2,22 @@
 
 Trajectory Arena is a local-first Next.js application for importing, validating, replaying, and comparing agentic coding trajectories. It is designed for a single operator who needs to inspect reasoning messages, tool activity, terminal output, file state, tests, and final outcomes without sending session data to an external service.
 
+[![CI](https://github.com/smfworks/trajectory-arena/actions/workflows/ci.yml/badge.svg)](https://github.com/smfworks/trajectory-arena/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js >=22.12.0](https://img.shields.io/badge/node-%3E%3D22.12.0-brightgreen.svg)](https://nodejs.org/)
+
 ![Trajectory Arena home](public/home1.png)
+
+## SMF public eval pair
+
+This repo and [smf-bench](https://github.com/smfworks/smf-bench) are complementary SMF eval tools — a **pair**, not a single product.
+
+| Role | Repo |
+|------|------|
+| **Agent trajectory arena** | this repo (trajectory-arena) — local-first Next.js app to import, validate, replay, and compare agentic coding trajectories |
+| **Model / capability bench** | [smf-bench](https://github.com/smfworks/smf-bench) — capability-gated LLM/multimodal/perf suite against OpenAI-compatible endpoints |
+
+Use Trajectory Arena when you already have agentic coding runs and need to inspect step-by-step behavior. Use smf-bench when you want to score a model's capabilities against a gated suite on an OpenAI-compatible endpoint. There is no required runtime wiring between them today: this repository does not import smf-bench SQLite results, export into that suite, or share a schema with it.
 
 ## Capabilities
 
@@ -129,3 +144,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Every pull request must preserve the sch
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+[SMF Works](https://github.com/smfworks) · [SMF Clearinghouse](https://www.smfclearinghouse.com)

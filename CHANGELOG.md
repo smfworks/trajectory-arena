@@ -21,6 +21,7 @@ All notable changes to Trajectory Arena are documented here. The project follows
 
 ### Changed
 
+- Documented Trajectory Arena and [smf-bench](https://github.com/smfworks/smf-bench) as the complementary SMF public eval pair (no shared runtime).
 - Upgraded Next.js and React and removed unused runtime dependencies.
 - Replaced the incompatible lint configuration with Biome.
 - Made the supported production topology explicit: one process on one persistent local volume.
