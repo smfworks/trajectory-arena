@@ -28,6 +28,7 @@ All notable changes to Trajectory Arena are documented here. The project follows
 
 ### Security
 
+- Bumped Next.js from 16.3.1 to 16.3.5 and sharp to ≥0.35.4 so production `npm audit --omit=dev` is clean.
 - Prevented request-controlled path traversal and symbolic-link reads.
 - Added bounded JSON requests, bounded pagination, strict schema versions, and generic integrity errors.
 - Production now fails closed when access control or persistent storage is not configured.
